@@ -20,10 +20,10 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 log_step()    { echo -e "\n${BOLD}${CYAN}==> ${1}${NC}"; }
-log_success() { echo -e "  ${GREEN}✅${NC} $1"; }
-log_error()   { echo -e "  ${RED}❌ Error:${NC} $1" >&2; exit 1; }
+log_success() { echo -e "  ${GREEN}*${NC} $1"; }
+log_error()   { echo -e "  ${RED}Error:${NC} $1" >&2; exit 1; }
 log_info()    { echo -e "  --> $1"; }
-log_warn()    { echo -e "  ${YELLOW}⚠️ ${NC} $1"; }
+log_warn()    { echo -e "  ${YELLOW}Warning:${NC} $1"; }
 
 # ----------------------------------------------------------
 # Detect OS
@@ -105,6 +105,53 @@ else
     sudo mv "${TMP_DIR}/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
     sudo chmod +x "${INSTALL_DIR}/${BINARY_NAME}"
 fi
+
+# ----------------------------------------------------------
+# Setup Auto-Completion
+# ----------------------------------------------------------
+log_step "Setting up shell auto-completion..."
+USER_SHELL=$(basename "${SHELL:-bash}")
+log_info "Detected active shell: ${USER_SHELL}"
+
+case "${USER_SHELL}" in
+    bash)
+        BASH_COMP_DIR="/etc/bash_completion.d"
+        if [ -d "${BASH_COMP_DIR}" ] && [ -w "${BASH_COMP_DIR}" ]; then
+            "${INSTALL_DIR}/${BINARY_NAME}" completion bash > "${BASH_COMP_DIR}/${BINARY_NAME}"
+            log_success "Bash autocomplete installed to ${BASH_COMP_DIR}/${BINARY_NAME}"
+        elif [ -d "${BASH_COMP_DIR}" ]; then
+            log_info "${BASH_COMP_DIR} requires sudo access. Prompting..."
+            "${INSTALL_DIR}/${BINARY_NAME}" completion bash | sudo tee "${BASH_COMP_DIR}/${BINARY_NAME}" >/dev/null
+            log_success "Bash autocomplete installed to ${BASH_COMP_DIR}/${BINARY_NAME}"
+        else
+            "${INSTALL_DIR}/${BINARY_NAME}" completion bash > "${HOME}/.dbspin_completion" 2>/dev/null || true
+            if [ -f "${HOME}/.dbspin_completion" ]; then
+                if ! grep -q "\.dbspin_completion" "${HOME}/.bashrc" 2>/dev/null; then
+                    echo -e "\n# dbspin auto-completion\n[ -f ~/.dbspin_completion ] && source ~/.dbspin_completion" >> "${HOME}/.bashrc"
+                fi
+                log_success "Bash autocomplete installed to ~/.dbspin_completion (sourced in ~/.bashrc)"
+            fi
+        fi
+        ;;
+    zsh)
+        ZSH_COMP_DIR="${HOME}/.zsh/completion"
+        mkdir -p "${ZSH_COMP_DIR}"
+        "${INSTALL_DIR}/${BINARY_NAME}" completion zsh > "${ZSH_COMP_DIR}/_${BINARY_NAME}"
+        if ! grep -q "\.zsh/completion" "${HOME}/.zshrc" 2>/dev/null; then
+            echo -e "\n# dbspin auto-completion\nfpath=(~/.zsh/completion \$fpath)\nautoload -Uz compinit && compinit" >> "${HOME}/.zshrc"
+        fi
+        log_success "Zsh autocomplete installed to ${ZSH_COMP_DIR}/_${BINARY_NAME} (configured in ~/.zshrc)"
+        ;;
+    fish)
+        FISH_COMP_DIR="${HOME}/.config/fish/completions"
+        mkdir -p "${FISH_COMP_DIR}"
+        "${INSTALL_DIR}/${BINARY_NAME}" completion fish > "${FISH_COMP_DIR}/${BINARY_NAME}.fish"
+        log_success "Fish autocomplete installed to ${FISH_COMP_DIR}/${BINARY_NAME}.fish"
+        ;;
+    *)
+        log_warn "Auto-completion setup skipped: Unsupported shell: ${USER_SHELL}"
+        ;;
+esac
 
 # ----------------------------------------------------------
 # Verify Install

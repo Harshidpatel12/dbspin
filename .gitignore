@@ -23,4 +23,4 @@ go.work.sum
 .env.*
 
 # Compiled binary
-db-spin
+dbspin
