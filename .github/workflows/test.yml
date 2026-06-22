@@ -1,0 +1,32 @@
+name: Test Codebase
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build binary
+        run: go build -v -o db-spin main.go
+
+      - name: Run unit tests
+        run: go test -v ./...
